@@ -1,16 +1,13 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type LogObject struct {
 	LogLevel string `json:"loglevel"`
-}
-
-type Rule struct {
-	Type        string    `json:"type"`
-	Domain      []string  `json:"domain,omitempty"`
-	OutBoundTag string    `json:"outboundTag"`
-	Ip          *[]string `json:"ip,omitempty"`
 }
 
 type InboundSettings struct {
@@ -69,7 +66,9 @@ type Inbound struct {
 
 type RoutingObject struct {
 	DomainStrategy string `json:"domainStrategy"`
-	Rules          []Rule `json:"rules"`
+	// Kept as raw JSON so rule fields we don't model (protocol, port,
+	// network, inboundTag, ...) aren't dropped when the config is rewritten.
+	Rules []json.RawMessage `json:"rules"`
 }
 
 type Outbound struct {
