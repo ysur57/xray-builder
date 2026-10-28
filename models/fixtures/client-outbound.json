@@ -21,7 +21,7 @@
         "security": "reality",
         "realitySettings": {
             "show": false,
-            "fingerprint": "chrome",
+            "fingerprint": "firefox",
             "serverName": "www.gggg.com",
             "publicKey": "some-publicKey",
             "shortId": "some-shortId",

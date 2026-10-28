@@ -90,7 +90,7 @@
                 "security": "reality",
                 "realitySettings": {
                     "show": false,
-                    "fingerprint": "chrome",
+                    "fingerprint": "firefox",
                     "serverName": "",
                     "publicKey": "",
                     "shortId": "",
