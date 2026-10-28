@@ -2,6 +2,9 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+
 jobs:
   release-linux-amd64:
     name: release linux/amd64
@@ -18,4 +21,4 @@ jobs:
         version: latest
         args: release --clean -f .goreleaser.yaml
       env:
-        GITHUB_TOKEN: ${{ secrets.GO_RELEASE_GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
