@@ -1,6 +1,6 @@
 module xray-builder
 
-go 1.23
+go 1.27.3
 
 require github.com/google/uuid v1.3.0
 
