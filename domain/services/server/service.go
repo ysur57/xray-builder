@@ -1,6 +1,9 @@
 package impl
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"xray-builder/internal"
 	"xray-builder/models"
 
@@ -9,6 +12,17 @@ import (
 
 type ServerService struct {
 	configsDirectory string
+}
+
+func (s *ServerService) ReadName() (string, error) {
+	name, err := os.ReadFile(filepath.Join(s.configsDirectory, "name"))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(name)), nil
 }
 
 func (s *ServerService) ReadConfig(path string) (*models.ServerConfig, error) {

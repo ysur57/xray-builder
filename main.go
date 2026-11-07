@@ -118,13 +118,21 @@ func Share(osService *linuxService.LinuxOsService, comment string, args *models.
 	}
 
 	switch args.Format {
-	case "link":
+	case "link", "qr":
+		name, err := serverService.ReadName()
+		if err != nil {
+			log.Fatalln("read share name:", err)
+			return
+		}
 		link := clientConfig.FirstOutbound().ShareLink(client.ShortId)
-		fmt.Println(link.String())
-
-	case "qr":
-		link := clientConfig.FirstOutbound().ShareLink(client.ShortId)
-		qr.RenderString(link.String(), false)
+		if name != "" {
+			link.Fragment = name
+		}
+		if args.Format == "qr" {
+			qr.RenderString(link.String(), false)
+		} else {
+			fmt.Println(link.String())
+		}
 
 	case "json":
 		result, _ := json.MarshalIndent(clientConfig, "", "    ")
