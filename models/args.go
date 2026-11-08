@@ -21,6 +21,7 @@ type Args struct {
 	Enable  *struct{}  `arg:"subcommand:enable"`
 	Disable *struct{}  `arg:"subcommand:disable"`
 	Share   *ShareArgs `arg:"subcommand:share"`
+	MCP     *struct{}  `arg:"subcommand:mcp" help:"serve MCP tools over stdin and stdout"`
 }
 
 type UsersArgs struct {
@@ -36,7 +37,7 @@ type SetupArgs struct {
 }
 
 func (a *Args) Validate() error {
-	if a.Setup == nil && a.UserList == nil && a.Add == nil && a.Remove == nil && a.Enable == nil && a.Disable == nil && a.Share == nil {
+	if a.Setup == nil && a.UserList == nil && a.Add == nil && a.Remove == nil && a.Enable == nil && a.Disable == nil && a.Share == nil && a.MCP == nil {
 		return fmt.Errorf("a subcommand is required")
 	}
 	if (a.Add != nil || a.Remove != nil || a.Enable != nil || a.Disable != nil || a.Share != nil) && strings.TrimSpace(a.User) == "" {
@@ -45,7 +46,7 @@ func (a *Args) Validate() error {
 	if a.Share != nil && a.Share.Format != "link" && a.Share.Format != "json" && a.Share.Format != "qr" {
 		return fmt.Errorf("--format must be link, json, or qr")
 	}
-	if (a.DryRun || a.NoRestart) && (a.UserList != nil || a.Share != nil) {
+	if (a.DryRun || a.NoRestart) && (a.UserList != nil || a.Share != nil || a.MCP != nil) {
 		return fmt.Errorf("--dry-run and --no-restart require a modifying command")
 	}
 	return nil

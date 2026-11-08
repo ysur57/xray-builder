@@ -43,6 +43,31 @@ sudo systemctl restart xray
 
 Commands exit with `0` on success, `1` on operational failure, and `2` on invalid arguments. Diagnostics go to stderr.
 
+## MCP
+
+Start the MCP server over stdio with `xray-builder mcp`. Configure an MCP client with:
+
+```json
+{
+  "mcpServers": {
+    "xray-builder": {
+      "command": "/usr/local/bin/xray-builder",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+To target another config, set `args` to `["--config", "/path/to/config.json", "--keypair", "/path/to/keypair.json", "mcp"]`.
+
+Tools: `list_users`, `share_user`, `add_user`, `remove_user`, `enable_user`, `disable_user`, and `setup_server`. Each tool exposes an input schema and structured results. `share_user` returns a link containing connection credentials. `setup_server` replaces configuration and keys.
+
+All mutation tools accept `dry_run` and `no_restart`, both defaulting to `false`. For example, call `remove_user` with `{"user":"alice","dry_run":true}` to preview removal. These options belong to tool calls; do not pass the CLI mutation flags when starting the MCP server.
+
+The server runs commands with its own account's file and service permissions and serializes operations within the session. Command failures return tool errors while keeping the MCP session alive.
+
+## Development
+
 Run the checks with:
 
 ```sh

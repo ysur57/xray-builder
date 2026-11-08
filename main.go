@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 	"xray-builder/models"
 	"xray-builder/qr"
@@ -44,6 +46,14 @@ func main() {
 	}
 	if err := args.Validate(); err != nil {
 		failUsage(argParser, err)
+	}
+	if args.MCP != nil {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		if err := runMCP(ctx, &args); err != nil && ctx.Err() == nil {
+			log.Fatalln(err)
+		}
+		return
 	}
 
 	cmdExecutor := bashexecutor.New(args.Verbose)

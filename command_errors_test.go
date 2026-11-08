@@ -42,6 +42,7 @@ func TestCLIErrorExit(t *testing.T) {
 		{"invalid format", []string{"--user", "alice", "share", "--format", "yaml"}, 2, "--format must be link, json, or qr"},
 		{"preview read command", []string{"--dry-run", "users"}, 2, "require a modifying command"},
 		{"no restart share", []string{"--no-restart", "--user", "alice", "share"}, 2, "require a modifying command"},
+		{"preview MCP startup", []string{"--dry-run", "mcp"}, 2, "require a modifying command"},
 		{"missing config", []string{"--config", configPath + ".missing", "users"}, 1, ".missing"},
 		{"missing remove user", []string{"--config", configPath, "--user", "missing", "remove"}, 1, "user not found"},
 		{"missing enable user", []string{"--config", configPath, "--user", "missing", "enable"}, 1, "user not found"},
