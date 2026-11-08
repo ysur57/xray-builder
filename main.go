@@ -12,6 +12,7 @@ import (
 
 	bashexecutor "xray-builder/domain/commands/bash"
 	clientservice "xray-builder/domain/services/clients"
+	"xray-builder/domain/services/osservice"
 	linuxService "xray-builder/domain/services/osservice/linux"
 	serverservice "xray-builder/domain/services/server"
 
@@ -53,11 +54,11 @@ func main() {
 	}
 
 	if args.Setup != nil {
-		if !isSuperUser {
+		if !isSuperUser && !args.DryRun {
 			sudoMaybeRequired()
 		}
 
-		Setup(osService, args.Setup)
+		Setup(osService, args.Setup, &args.MutationArgs)
 		return
 	}
 
@@ -68,38 +69,38 @@ func main() {
 
 	if lo.IsNotEmpty(args.User) {
 		if args.Add != nil {
-			if !isSuperUser {
+			if !isSuperUser && !args.DryRun {
 				sudoMaybeRequired()
 			}
 
-			AddClient(osService, args.User)
+			AddClient(osService, args.User, &args.MutationArgs)
 			return
 		}
 
 		if args.Remove != nil {
-			if !isSuperUser {
+			if !isSuperUser && !args.DryRun {
 				sudoMaybeRequired()
 			}
 
-			RemoveClient(osService, args.User)
+			RemoveClient(osService, args.User, &args.MutationArgs)
 			return
 		}
 
 		if args.Disable != nil {
-			if !isSuperUser {
+			if !isSuperUser && !args.DryRun {
 				sudoMaybeRequired()
 			}
 
-			ToggleClientEnabled(osService, args.User, false)
+			ToggleClientEnabled(osService, args.User, false, &args.MutationArgs)
 			return
 		}
 
 		if args.Enable != nil {
-			if !isSuperUser {
+			if !isSuperUser && !args.DryRun {
 				sudoMaybeRequired()
 			}
 
-			ToggleClientEnabled(osService, args.User, true)
+			ToggleClientEnabled(osService, args.User, true, &args.MutationArgs)
 			return
 		}
 
@@ -160,12 +161,16 @@ func Share(osService *linuxService.LinuxOsService, comment string, args *models.
 	}
 }
 
-func Setup(osService *linuxService.LinuxOsService, args *models.SetupArgs) {
+func Setup(osService *linuxService.LinuxOsService, args *models.SetupArgs, options *models.MutationArgs) {
 	serverService := serverservice.New()
 
 	cfg, err := serverService.ReadConfig("")
 	if err != nil {
 		log.Fatalln(err)
+	}
+	if options.DryRun {
+		fmt.Printf("would configure Xray for destination %q\n", args.Destination)
+		return
 	}
 
 	keyPair, err := osService.GenerateKeyPair()
@@ -179,15 +184,12 @@ func Setup(osService *linuxService.LinuxOsService, args *models.SetupArgs) {
 	}
 
 	serverService.SetupServer(cfg, keyPair, args.Destination)
-	if err = osService.WriteServerConfig(cfg); err != nil {
-		log.Fatalln("WriteServerConfig", err)
-	}
-	if err = osService.RestartXray(); err != nil {
-		log.Fatalln("Xray restart failed. Please restart it manually.")
+	if err = applyServerConfig(osService, cfg, options); err != nil {
+		log.Fatalln(err)
 	}
 }
 
-func AddClient(osService *linuxService.LinuxOsService, comment string) {
+func AddClient(osService *linuxService.LinuxOsService, comment string, options *models.MutationArgs) {
 	clientService := clientservice.New(osService)
 	serverService := serverservice.New()
 	serverConfig, err := serverService.ReadConfig(osService.XrayConfigPath)
@@ -198,6 +200,10 @@ func AddClient(osService *linuxService.LinuxOsService, comment string) {
 	if serverService.GetUser(serverConfig, comment) != nil {
 		log.Fatalln("user already exists")
 	}
+	if options.DryRun {
+		fmt.Printf("would add user %q\n", comment)
+		return
+	}
 
 	network := serverConfig.FirstInbound().StreamSettings.Network
 	client, err := clientService.CreateClient(comment, network)
@@ -206,16 +212,16 @@ func AddClient(osService *linuxService.LinuxOsService, comment string) {
 	}
 	serverService.AppendClient(serverConfig, client)
 
-	err = osService.WriteServerConfig(serverConfig)
+	err = applyServerConfig(osService, serverConfig, options)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	if err = osService.RestartXray(); err != nil {
-		log.Fatalln("Xray restart failed. Please restart it manually.")
+	if options.NoRestart {
+		fmt.Println("config saved")
+	} else {
+		fmt.Println("xray restarted")
 	}
-
-	fmt.Println("xray restarted")
 }
 
 func ListClients(osService *linuxService.LinuxOsService, args *models.UsersArgs) {
@@ -257,7 +263,7 @@ func writeClients(output io.Writer, cfg *models.ServerConfig, asJSON bool) error
 	return err
 }
 
-func ToggleClientEnabled(osService *linuxService.LinuxOsService, comment string, isEnabled bool) {
+func ToggleClientEnabled(osService *linuxService.LinuxOsService, comment string, isEnabled bool, options *models.MutationArgs) {
 	serverService := serverservice.New()
 	cfg, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
@@ -269,19 +275,22 @@ func ToggleClientEnabled(osService *linuxService.LinuxOsService, comment string,
 		log.Fatalln("user not found")
 		return
 	}
+	if options.DryRun {
+		action := "disable"
+		if isEnabled {
+			action = "enable"
+		}
+		fmt.Printf("would %s user %q\n", action, comment)
+		return
+	}
 
-	err = osService.WriteServerConfig(cfg)
+	err = applyServerConfig(osService, cfg, options)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	err = osService.RestartXray()
-	if err != nil {
-		log.Fatalln("Xray restart failed. Please restart it manually.")
-	}
 }
 
-func RemoveClient(osService *linuxService.LinuxOsService, comment string) {
+func RemoveClient(osService *linuxService.LinuxOsService, comment string, options *models.MutationArgs) {
 	serverService := serverservice.New()
 	cfg, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
@@ -293,17 +302,31 @@ func RemoveClient(osService *linuxService.LinuxOsService, comment string) {
 		log.Fatalln("user not found")
 		return
 	}
+	if options.DryRun {
+		fmt.Printf("would remove user %q\n", comment)
+		return
+	}
 
-	err = osService.WriteServerConfig(cfg)
+	err = applyServerConfig(osService, cfg, options)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	userJson, _ := json.MarshalIndent(user, "", "    ")
 	fmt.Println(string(userJson))
+}
 
-	err = osService.RestartXray()
-	if err != nil {
-		log.Fatalln("Xray restart failed. Please restart it manually.")
+func applyServerConfig(service osservice.OsService, cfg *models.ServerConfig, options *models.MutationArgs) error {
+	if options.DryRun {
+		return nil
 	}
+	if err := service.WriteServerConfig(cfg); err != nil {
+		return fmt.Errorf("write server config: %w", err)
+	}
+	if !options.NoRestart {
+		if err := service.RestartXray(); err != nil {
+			return fmt.Errorf("server config saved, but Xray restart failed: %w", err)
+		}
+	}
+	return nil
 }
