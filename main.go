@@ -20,18 +20,36 @@ import (
 )
 
 func sudoMaybeRequired() {
-	fmt.Println("You may need to run this command with sudo.")
+	fmt.Fprintln(os.Stderr, "You may need to run this command with sudo.")
+}
+
+func failUsage(parser *arg.Parser, err error) {
+	parser.WriteUsage(os.Stderr)
+	fmt.Fprintln(os.Stderr, "error:", err)
+	os.Exit(2)
 }
 
 func main() {
 	var args models.Args
-	argParser := arg.MustParse(&args)
+	argParser, err := arg.NewParser(arg.Config{}, &args)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if err = argParser.Parse(os.Args[1:]); err == arg.ErrHelp {
+		argParser.WriteHelp(os.Stdout)
+		return
+	} else if err != nil {
+		failUsage(argParser, err)
+	}
+	if err := args.Validate(); err != nil {
+		failUsage(argParser, err)
+	}
 
 	cmdExecutor := bashexecutor.New(args.Verbose)
 	osService := linuxService.New(args.XrayConfigPath, args.XrayKeypairPath, cmdExecutor)
 	isSuperUser, err := osService.IsSuperUser()
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	if args.Setup != nil {
@@ -99,7 +117,7 @@ func Share(osService *linuxService.LinuxOsService, comment string, args *models.
 	serverConfig, err := serverService.ReadConfig(osService.XrayConfigPath)
 
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	client := serverService.GetUser(serverConfig, comment)
@@ -110,13 +128,13 @@ func Share(osService *linuxService.LinuxOsService, comment string, args *models.
 
 	keyPair, err := serverService.ReadKeyPair(osService.XrayKeypairPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	clientService := clientservice.New(osService)
 	clientConfig, err := clientService.CreateClientConfig(serverConfig.ServerName(), client, keyPair, &serverConfig.FirstInbound().StreamSettings)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	switch args.Format {
@@ -147,7 +165,7 @@ func Setup(osService *linuxService.LinuxOsService, args *models.SetupArgs) {
 
 	cfg, err := serverService.ReadConfig("")
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	keyPair, err := osService.GenerateKeyPair()
@@ -161,7 +179,9 @@ func Setup(osService *linuxService.LinuxOsService, args *models.SetupArgs) {
 	}
 
 	serverService.SetupServer(cfg, keyPair, args.Destination)
-	osService.WriteServerConfig(cfg)
+	if err = osService.WriteServerConfig(cfg); err != nil {
+		log.Fatalln("WriteServerConfig", err)
+	}
 	if err = osService.RestartXray(); err != nil {
 		log.Fatalln("Xray restart failed. Please restart it manually.")
 	}
@@ -172,7 +192,7 @@ func AddClient(osService *linuxService.LinuxOsService, comment string) {
 	serverService := serverservice.New()
 	serverConfig, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	if serverService.GetUser(serverConfig, comment) != nil {
@@ -182,7 +202,7 @@ func AddClient(osService *linuxService.LinuxOsService, comment string) {
 	network := serverConfig.FirstInbound().StreamSettings.Network
 	client, err := clientService.CreateClient(comment, network)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 	serverService.AppendClient(serverConfig, client)
 
@@ -241,18 +261,18 @@ func ToggleClientEnabled(osService *linuxService.LinuxOsService, comment string,
 	serverService := serverservice.New()
 	cfg, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	user := serverService.ToggleUserEnabled(cfg, comment, isEnabled)
 	if user == nil {
-		fmt.Println("user not found")
+		log.Fatalln("user not found")
 		return
 	}
 
 	err = osService.WriteServerConfig(cfg)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	err = osService.RestartXray()
@@ -265,18 +285,18 @@ func RemoveClient(osService *linuxService.LinuxOsService, comment string) {
 	serverService := serverservice.New()
 	cfg, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	user := serverService.RemoveUser(cfg, comment)
 	if user == nil {
-		fmt.Println("user not found")
+		log.Fatalln("user not found")
 		return
 	}
 
 	err = osService.WriteServerConfig(cfg)
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	userJson, _ := json.MarshalIndent(user, "", "    ")

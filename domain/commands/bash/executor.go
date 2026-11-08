@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"xray-builder/models"
@@ -59,7 +60,7 @@ func (b *BashCmdExecutor) Shell(command string) (string, string, error) {
 	err := cmd.Run()
 
 	if b.verbose {
-		fmt.Println(stdout.String(), stderr.String(), err)
+		fmt.Fprintf(os.Stderr, "command %q: %v\n", command, err)
 	}
 
 	return stdout.String(), stderr.String(), err
