@@ -5,7 +5,7 @@ type Args struct {
 	XrayKeypairPath string `arg:"--keypair" default:"/usr/local/etc/xray/keypair.json"`
 	Verbose         bool   `arg:"-v,--verbose"`
 
-	UserList *struct{}  `arg:"subcommand:users" help:"list users"`
+	UserList *UsersArgs `arg:"subcommand:users" help:"list users"`
 	Setup    *SetupArgs `arg:"subcommand:setup" help:"install xray and generate configs"`
 
 	User    string     `arg:"-u,--user" help:"Id or comment of the user."`
@@ -14,6 +14,10 @@ type Args struct {
 	Enable  *struct{}  `arg:"subcommand:enable"`
 	Disable *struct{}  `arg:"subcommand:disable"`
 	Share   *ShareArgs `arg:"subcommand:share"`
+}
+
+type UsersArgs struct {
+	JSON bool `arg:"--json" help:"output user IDs, names, and enabled state as JSON"`
 }
 
 type ShareArgs struct {

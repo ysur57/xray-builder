@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"xray-builder/models"
 	"xray-builder/qr"
@@ -42,7 +44,7 @@ func main() {
 	}
 
 	if args.UserList != nil {
-		ListClients(osService)
+		ListClients(osService, args.UserList)
 		return
 	}
 
@@ -196,20 +198,43 @@ func AddClient(osService *linuxService.LinuxOsService, comment string) {
 	fmt.Println("xray restarted")
 }
 
-func ListClients(osService *linuxService.LinuxOsService) {
+func ListClients(osService *linuxService.LinuxOsService, args *models.UsersArgs) {
 	serverService := serverservice.New()
 	cfg, err := serverService.ReadConfig(osService.XrayConfigPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	users := serverService.GetUsers(cfg)
+	if err := writeClients(os.Stdout, cfg, args.JSON); err != nil {
+		log.Fatalln(err)
+	}
+}
 
-	comments := lo.Map(*users, func(u models.Client, _ int) string {
-		return u.Comment
-	})
+func writeClients(output io.Writer, cfg *models.ServerConfig, asJSON bool) error {
+	if len(cfg.Inbounds) == 0 {
+		return fmt.Errorf("server config has no inbounds")
+	}
+	users := cfg.FirstInbound().Settings.Clients
+	if asJSON {
+		type userInfo struct {
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Enabled bool   `json:"enabled"`
+		}
+		result := make([]userInfo, 0, len(users))
+		for _, user := range users {
+			result = append(result, userInfo{
+				ID:      user.Id,
+				Name:    user.Comment,
+				Enabled: lo.Contains(cfg.FirstInbound().StreamSettings.RealitySettings.ShortIds, user.ShortId),
+			})
+		}
+		return json.NewEncoder(output).Encode(result)
+	}
 
-	fmt.Println(strings.Join(comments, "\n"))
+	comments := lo.Map(users, func(u models.Client, _ int) string { return u.Comment })
+	_, err := fmt.Fprintln(output, strings.Join(comments, "\n"))
+	return err
 }
 
 func ToggleClientEnabled(osService *linuxService.LinuxOsService, comment string, isEnabled bool) {
