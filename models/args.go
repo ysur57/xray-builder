@@ -6,6 +6,8 @@ import (
 )
 
 type Args struct {
+	MutationArgs
+
 	XrayConfigPath  string `arg:"--config" default:"/usr/local/etc/xray/config.json"`
 	XrayKeypairPath string `arg:"--keypair" default:"/usr/local/etc/xray/keypair.json"`
 	Verbose         bool   `arg:"-v,--verbose"`
@@ -43,9 +45,17 @@ func (a *Args) Validate() error {
 	if a.Share != nil && a.Share.Format != "link" && a.Share.Format != "json" && a.Share.Format != "qr" {
 		return fmt.Errorf("--format must be link, json, or qr")
 	}
+	if (a.DryRun || a.NoRestart) && (a.UserList != nil || a.Share != nil) {
+		return fmt.Errorf("--dry-run and --no-restart require a modifying command")
+	}
 	return nil
 }
 
 func (Args) Description() string {
 	return "Configure xray-core and manage users.\nhttps://github.com/ysur67/xray-builder\n"
+}
+
+type MutationArgs struct {
+	DryRun    bool `arg:"--dry-run" help:"preview a change without writing files or restarting Xray"`
+	NoRestart bool `arg:"--no-restart" help:"save changes without restarting Xray"`
 }
