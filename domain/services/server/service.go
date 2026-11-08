@@ -86,16 +86,16 @@ func (s *ServerService) GetUser(cfg *models.ServerConfig, userIdOrComment string
 	return &client
 }
 
-func (s *ServerService) RemoveUser(cfg *models.ServerConfig, userComment string) *models.Client {
+func (s *ServerService) RemoveUser(cfg *models.ServerConfig, userIdOrComment string) *models.Client {
 	inbound := cfg.FirstInbound()
-	user := s.GetUser(cfg, userComment)
+	user := s.GetUser(cfg, userIdOrComment)
 	if user == nil {
 		return nil
 	}
 
-	s.ToggleUserEnabled(cfg, userComment, false)
+	s.ToggleUserEnabled(cfg, user.Id, false)
 	inbound.Settings.Clients = lo.Filter(inbound.Settings.Clients, func(c models.Client, _ int) bool {
-		return c.Comment != userComment
+		return c.Id != user.Id
 	})
 
 	return user
