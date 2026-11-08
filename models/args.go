@@ -1,5 +1,10 @@
 package models
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Args struct {
 	XrayConfigPath  string `arg:"--config" default:"/usr/local/etc/xray/config.json"`
 	XrayKeypairPath string `arg:"--keypair" default:"/usr/local/etc/xray/keypair.json"`
@@ -26,6 +31,19 @@ type ShareArgs struct {
 
 type SetupArgs struct {
 	Destination string `arg:"-d,--destination,required" placeholder:"rkn.gov.ru/" help:"destination and serverName in xray server config"`
+}
+
+func (a *Args) Validate() error {
+	if a.Setup == nil && a.UserList == nil && a.Add == nil && a.Remove == nil && a.Enable == nil && a.Disable == nil && a.Share == nil {
+		return fmt.Errorf("a subcommand is required")
+	}
+	if (a.Add != nil || a.Remove != nil || a.Enable != nil || a.Disable != nil || a.Share != nil) && strings.TrimSpace(a.User) == "" {
+		return fmt.Errorf("--user is required for this command")
+	}
+	if a.Share != nil && a.Share.Format != "link" && a.Share.Format != "json" && a.Share.Format != "qr" {
+		return fmt.Errorf("--format must be link, json, or qr")
+	}
+	return nil
 }
 
 func (Args) Description() string {
